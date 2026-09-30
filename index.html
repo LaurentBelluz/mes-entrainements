@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827"><link rel="manifest" href="manifest.json">
+<title>Mes entraînements</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui;background:#f3f4f6;color:#111827}
+header{background:#111827;color:white;padding:17px}h1{margin:0;font-size:21px}header p{margin:3px 0 0;color:#cbd5e1;font-size:13px}
+main{max-width:1000px;margin:auto;padding:12px 10px 80px}.bar{display:flex;align-items:center;gap:7px;margin-bottom:10px}.bar button{border:0;background:#fff;border-radius:9px;padding:9px 12px;font-weight:650}.weektitle{flex:1;text-align:center;font-weight:750}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;overflow:auto}.day{background:white;border-radius:12px;min-height:180px;padding:7px}.head{text-align:center;font-size:12px;font-weight:700}.head b{display:block;font-size:18px}.card{background:#f8fafc;border-radius:9px;padding:8px;margin-top:6px;cursor:pointer;font-size:12px}.card strong{display:block}.meta{color:#6b7280}.done{opacity:.5;text-decoration:line-through}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.stat{background:#fff;border-radius:11px;padding:10px}.stat small{color:#6b7280}.stat b{display:block;font-size:18px}.fab{position:fixed;right:18px;bottom:18px;border:0;border-radius:50%;width:56px;height:56px;background:#111827;color:white;font-size:28px}
+dialog{border:0;border-radius:17px;width:min(94vw,550px);padding:0}dialog::backdrop{background:#0008}.modal{padding:18px}label{display:block;font-size:12px;font-weight:700;margin:9px 0 4px}input,select,textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:9px;font:inherit}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.actions button{border:0;border-radius:9px;padding:10px 14px;font-weight:700}.save{background:#111827;color:white}.cancel{background:#e5e7eb}.delete{margin-right:auto;background:#fee2e2;color:#991b1b}
+@media(max-width:700px){.grid{grid-template-columns:repeat(7,125px)}.summary{grid-template-columns:repeat(2,1fr)}}
+</style></head>
+<body>
+<header><h1>Mes entraînements</h1><p>Planning multisport hebdomadaire</p></header>
+<main><div class="bar"><button id="prev">‹</button><button id="today">Aujourd'hui</button><button id="next">›</button><div class="weektitle" id="wt"></div></div>
+<div class="grid" id="grid"></div><div class="summary" id="summary"></div></main><button class="fab" id="add">+</button>
+<dialog id="dlg"><form class="modal" id="form"><h2 id="mt">Nouvelle séance</h2>
+<input type="hidden" id="id"><label>Sport</label><select id="sport"><option value="run">🏃 Course</option><option value="bike">🚴 Vélo</option><option value="swim">🏊 Natation</option><option value="strength">🏋️ Renforcement</option><option value="walk">🚶 Marche</option><option value="other">🏅 Autre</option></select>
+<label>Titre</label><input id="title" required><div class="row"><div><label>Durée</label><input id="duration" placeholder="45 min"></div><div><label>Date</label><input id="start" type="date" required></div></div>
+<label>Description</label><textarea id="desc"></textarea><label>Récurrence</label><select id="repeat"><option value="none">Une fois</option><option value="daily">Tous les jours</option><option value="weekly">Chaque semaine</option><option value="biweekly">Toutes les 2 semaines</option><option value="monthly">Chaque mois</option></select>
+<label>Fin de récurrence</label><input id="end" type="date"><div class="actions"><button type="button" class="delete" id="del">Supprimer</button><button type="button" class="cancel" id="cancel">Annuler</button><button class="save">Enregistrer</button></div>
+</form></dialog>
+<script>
+const K="training-v2";const S={run:["🏃","Course"],bike:["🚴","Vélo"],swim:["🏊","Natation"],strength:["🏋️","Renforcement"],walk:["🚶","Marche"],other:["🏅","Autre"]};
+let data=JSON.parse(localStorage.getItem(K)||"[]"),cur=new Date(),editing=null;
+const $=x=>document.getElementById(x),iso=d=>d.toISOString().slice(0,10),parse=s=>{let[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c)};
+function mon(){let d=new Date(cur),n=d.getDay();d.setDate(d.getDate()-(n===0?6:n-1));return d}
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function occurs(x,d){let a=parse(x.start);if(d<a)return false;if(x.end&&d>parse(x.end))return false;let diff=Math.floor((d-a)/86400000),w=d.getDay();return x.repeat==="none"?diff===0:x.repeat==="daily"?true:x.repeat==="weekly"?w===a.getDay():x.repeat==="biweekly"?w===a.getDay()&&Math.floor(diff/7)%2===0:x.repeat==="monthly"?d.getDate()===a.getDate():false}
+function render(){let m=mon(),e=new Date(m);e.setDate(e.getDate()+6);$("wt").textContent=m.toLocaleDateString("fr-FR",{day:"numeric",month:"long"})+" – "+e.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});$("grid").innerHTML="";let total=0,done=0,sports=new Set();
+for(let n=0;n<7;n++){let d=new Date(m);d.setDate(d.getDate()+n),ds=iso(d),day=document.createElement("div");day.className="day";day.innerHTML=`<div class="head">${d.toLocaleDateString("fr-FR",{weekday:"short"})}<b>${d.getDate()}</b></div>`;let ts=data.filter(x=>occurs(x,d));ts.forEach(x=>{total++;sports.add(x.sport);let ok=(x.done||[]).includes(ds);if(ok)done++;let [ic]=S[x.sport];let c=document.createElement("div");c.className="card"+(ok?" done":"");c.innerHTML=`${ic} <strong>${esc(x.title)}</strong><span class="meta">${esc(x.duration)}</span>`;c.onclick=()=>edit(x);day.appendChild(c)});if(!ts.length)day.innerHTML+="<div style='text-align:center;color:#9ca3af;padding:30px'>—</div>";$("grid").appendChild(day)}
+$("summary").innerHTML=`<div class="stat"><small>Séances</small><b>${total}</b></div><div class="stat"><small>Réalisées</small><b>${done}</b></div><div class="stat"><small>À faire</small><b>${total-done}</b></div><div class="stat"><small>Sports</small><b>${sports.size}</b></div>`}
+function edit(x){editing=x;$("form").reset();$("mt").textContent=x?"Modifier la séance":"Nouvelle séance";$("id").value=x?.id||"";$("sport").value=x?.sport||"run";$("title").value=x?.title||"";$("duration").value=x?.duration||"";$("start").value=x?.start||iso(cur);$("desc").value=x?.desc||"";$("repeat").value=x?.repeat||"none";$("end").value=x?.end||"";$("del").style.display=x?"block":"none";$("dlg").showModal()}
+$("form").onsubmit=e=>{e.preventDefault();let old=editing,id=$("id").value||Date.now().toString(36),x=old||{id,done:[]};Object.assign(x,{id,sport:$("sport").value,title:$("title").value.trim(),duration:$("duration").value.trim(),start:$("start").value,desc:$("desc").value.trim(),repeat:$("repeat").value,end:$("end").value});if(!old)data.push(x);localStorage.setItem(K,JSON.stringify(data));$("dlg").close();render()};
+$("del").onclick=()=>{if(editing&&confirm("Supprimer cette séance ?")){data=data.filter(x=>x.id!==editing.id);localStorage.setItem(K,JSON.stringify(data));$("dlg").close();render()}};$("cancel").onclick=()=>$("dlg").close();$("add").onclick=()=>edit(null);$("prev").onclick=()=>{cur.setDate(cur.getDate()-7);render()};$("next").onclick=()=>{cur.setDate(cur.getDate()+7);render()};$("today").onclick=()=>{cur=new Date();render()};render();
+</script></body></html>
